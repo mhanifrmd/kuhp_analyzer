@@ -36,7 +36,7 @@ def test_gemini_model():
         dummy_api_key = "dummy_key_for_testing"
         
         # Test model initialization
-        model_name = 'gemini-2.0-flash-exp'
+        model_name = 'gemini-2.5-flash-exp'
         print(f"[INFO] Testing model: {model_name}")
         
         # Ini hanya test nama model, tidak akan benar-benar memanggil API
@@ -79,7 +79,7 @@ def test_fastapi_setup():
         return False
 
 def main():
-    print("Testing KUHP Analyzer Backend dengan Gemini 2.0 Flash")
+    print("Testing KUHP Analyzer Backend dengan Gemini 2.5 Flash")
     print("=" * 55)
     
     tests_passed = 0
