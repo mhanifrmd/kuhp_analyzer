@@ -1,6 +1,6 @@
 # KUHP Analyzer
 
-Aplikasi web AI untuk menganalisis perbedaan antara KUHP lama dan KUHP baru menggunakan Gemini 1.5 Flash. Aplikasi ini memungkinkan pengguna untuk mencari pasal atau kata kunci tertentu dan mendapatkan analisis komprehensif tentang perubahan yang terjadi antara kedua versi KUHP.
+Aplikasi web AI untuk menganalisis perbedaan antara KUHP lama dan KUHP baru menggunakan Gemini 2.5 Flash. Aplikasi ini memungkinkan pengguna untuk mencari pasal atau kata kunci tertentu dan mendapatkan analisis komprehensif tentang perubahan yang terjadi antara kedua versi KUHP.
 
 ## Fitur
 
@@ -383,4 +383,4 @@ Untuk pertanyaan atau dukungan teknis, silakan buat issue di repository ini.
 
 ---
 
-**Dibuat menggunakan Next.js, FastAPI, dan Google Gemini 1.5 Flash - Deploy menggunakan Google Cloud Shell**
+**Dibuat menggunakan Next.js, FastAPI, dan Google Gemini 2.5 Flash - Deploy menggunakan Google Cloud Shell**

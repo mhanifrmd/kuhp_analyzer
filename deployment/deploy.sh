@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # KUHP Analyzer - Script Deployment untuk Google Cloud Run
+# Menggunakan Gemini 2.0 Flash untuk analisis AI
 # Jalankan script ini di Google Cloud Shell
 
 set -e
