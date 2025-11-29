@@ -54,7 +54,7 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-xl text-gray-600">
-              Analisis Perbedaan KUHP Lama dan Baru dengan AI
+              Analisis Perbedaan KUHP Lama dan Baru dengan Google ADK
             </p>
             <p className="text-sm text-gray-500 mt-2">
               Masukkan pasal atau kata kunci untuk mengetahui perbedaan antara KUHP lama dan baru
@@ -139,7 +139,7 @@ export default function Home() {
       </div>
 
       <footer className="mt-12 text-center text-gray-500 text-sm">
-        <p>© 2024 KUHP Analyzer - Powered by Gemini AI</p>
+        <p>© 2024 KUHP Analyzer - Powered by Google Agent Development Kit</p>
       </footer>
     </div>
   )

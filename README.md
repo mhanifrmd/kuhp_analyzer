@@ -1,13 +1,15 @@
 # KUHP Analyzer
 
-Aplikasi web AI untuk menganalisis perbedaan antara KUHP lama dan KUHP baru menggunakan Gemini 2.5 Flash. Aplikasi ini memungkinkan pengguna untuk mencari pasal atau kata kunci tertentu dan mendapatkan analisis komprehensif tentang perubahan yang terjadi antara kedua versi KUHP.
+Aplikasi web AI Agent untuk menganalisis perbedaan antara KUHP lama dan KUHP baru menggunakan Google Agent Development Kit (ADK) dengan Gemini 2.5 Flash. Aplikasi ini memungkinkan pengguna untuk mencari pasal atau kata kunci tertentu dan mendapatkan analisis komprehensif tentang perubahan yang terjadi antara kedua versi KUHP.
 
 ## Fitur
 
-- **Analisis AI**: Menggunakan Google Gemini 2.5 Flash untuk menganalisis perbedaan KUHP
+- **AI Agent Architecture**: Menggunakan Google Agent Development Kit (ADK) dengan Gemini 2.5 Flash
+- **Advanced Document Processing**: Chunking dan retrieval yang cerdas untuk dokumen KUHP
+- **Multi-Tool Agent**: Agent dengan tools khusus untuk analisis hukum
 - **Interface Modern**: Frontend Next.js yang responsif dan user-friendly
-- **API Backend**: FastAPI backend yang cepat dan scalable
-- **Cloud Ready**: Siap deploy ke Google Cloud Run
+- **Scalable Backend**: FastAPI dengan ADK integration
+- **Cloud Native**: Optimized untuk Google Cloud Run dengan Vertex AI
 - **Scope Terbatas**: Hanya menjawab pertanyaan yang berkaitan dengan KUHP
 
 ## Arsitektur

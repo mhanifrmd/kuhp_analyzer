@@ -3,6 +3,14 @@ uvicorn==0.24.0
 python-multipart==0.0.6
 PyPDF2==3.0.1
 google-generativeai==0.8.3
-python-dotenv==1.0.0
+google-cloud-aiplatform==1.38.1
+google-cloud-functions==1.15.0
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-cloud-storage==2.10.0
 pydantic==2.4.2
+python-dotenv==1.0.0
 gunicorn==21.2.0
+vertexai==1.38.1
+langchain==0.0.350
+langchain-google-vertexai==0.0.6
