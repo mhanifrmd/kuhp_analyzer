@@ -4,7 +4,7 @@ Aplikasi web AI untuk menganalisis perbedaan antara KUHP lama dan KUHP baru meng
 
 ## Fitur
 
-- **Analisis AI**: Menggunakan Google Gemini 1.5 Flash untuk menganalisis perbedaan KUHP
+- **Analisis AI**: Menggunakan Google Gemini 2.5 Flash untuk menganalisis perbedaan KUHP
 - **Interface Modern**: Frontend Next.js yang responsif dan user-friendly
 - **API Backend**: FastAPI backend yang cepat dan scalable
 - **Cloud Ready**: Siap deploy ke Google Cloud Run

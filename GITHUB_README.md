@@ -4,7 +4,7 @@ AI-powered application for analyzing differences between old and new Indonesian 
 
 ## Repository Structure
 This repository contains a complete web application with:
-- FastAPI backend with Gemini 2.0 Flash integration
+- FastAPI backend with Gemini 2.5 Flash integration
 - Next.js frontend with modern UI
 - Docker containerization
 - Google Cloud Run deployment ready
