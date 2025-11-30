@@ -72,11 +72,18 @@ else
     echo "   [INFO] Requirements.txt check (pip dry-run may not be available)"
 fi
 
-# Test 6: Check frontend package.json
+# Test 6: Check frontend configuration
 echo "6. Testing frontend configuration..."
 if [ -f "frontend/package.json" ]; then
     if node -e "JSON.parse(require('fs').readFileSync('frontend/package.json', 'utf8'))" 2>/dev/null; then
         echo "   [PASS] Frontend package.json valid JSON"
+        
+        # Check if package-lock.json exists
+        if [ -f "frontend/package-lock.json" ]; then
+            echo "   [PASS] Frontend package-lock.json exists"
+        else
+            echo "   [INFO] Frontend package-lock.json not found - will be generated during build"
+        fi
     else
         echo "   [FAIL] Frontend package.json invalid JSON"
         exit 1
