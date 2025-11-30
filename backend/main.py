@@ -219,7 +219,6 @@ async def get_analyzer_documentation():
         "analyzer_config": {
             "model": kuhp_analyzer.config.model_name,
             "temperature": kuhp_analyzer.config.temperature,
-            "max_tokens": kuhp_analyzer.config.max_output_tokens,
             "old_kuhp_path": kuhp_analyzer.config.old_kuhp_path,
             "new_kuhp_path": kuhp_analyzer.config.new_kuhp_path
         },

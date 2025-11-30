@@ -21,9 +21,8 @@ except ImportError:
 @dataclass
 class KUHPConfig:
     """Konfigurasi untuk KUHP analyzer"""
-    model_name: str = "gemini-2.5-flash-exp"
+    model_name: str = "gemini-2.0-flash"  # Stable model for file API
     temperature: float = 0.1
-    max_output_tokens: int = 2048
     old_kuhp_path: str = "documents/kuhp_old.pdf"
     new_kuhp_path: str = "documents/kuhp_new.pdf"
 
@@ -56,8 +55,8 @@ class KUHPAnalyzer:
             self.model = genai.GenerativeModel(
                 model_name=self.config.model_name,
                 generation_config={
-                    "temperature": self.config.temperature,
-                    "max_output_tokens": self.config.max_output_tokens
+                    "temperature": self.config.temperature
+                    # No max_output_tokens limit - use model default
                 }
             )
             
@@ -245,19 +244,55 @@ Jawab dalam bahasa Indonesia yang profesional dan informatif."""
 
     def _generate_response_with_files(self, prompt: str) -> str:
         """Generate response menggunakan Gemini dengan PDF files"""
+        max_retries = 3
+        retry_delay = 2
+
+        for attempt in range(max_retries):
+            try:
+                # Verify files are still active before generating
+                self._verify_files_ready()
+
+                # PENTING: Files harus dikirim SEBELUM prompt untuk Gemini File API
+                # Ini memastikan model dapat mengakses konten file terlebih dahulu
+                content = [
+                    self.old_kuhp_file,  # KUHP Lama dulu
+                    self.new_kuhp_file,  # KUHP Baru
+                    prompt               # Prompt terakhir
+                ]
+
+                print(f"[KUHP] Generating response (attempt {attempt + 1}/{max_retries})...")
+                response = self.model.generate_content(content)
+
+                if response.text:
+                    return response.text
+                else:
+                    raise Exception("Empty response received from Gemini")
+
+            except Exception as e:
+                print(f"[KUHP ERROR] Response generation failed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    print(f"[KUHP] Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    raise
+
+    def _verify_files_ready(self):
+        """Verify both files are still active and ready"""
         try:
-            # Create content dengan files dan prompt
-            content = [
-                prompt,
-                self.old_kuhp_file,
-                self.new_kuhp_file
-            ]
-            
-            response = self.model.generate_content(content)
-            return response.text
-                
+            old_file_info = genai.get_file(self.old_kuhp_file.name)
+            new_file_info = genai.get_file(self.new_kuhp_file.name)
+
+            if old_file_info.state.name != "ACTIVE":
+                print(f"[KUHP WARNING] Old KUHP file state: {old_file_info.state.name}")
+                raise Exception(f"KUHP Lama file is not active: {old_file_info.state.name}")
+
+            if new_file_info.state.name != "ACTIVE":
+                print(f"[KUHP WARNING] New KUHP file state: {new_file_info.state.name}")
+                raise Exception(f"KUHP Baru file is not active: {new_file_info.state.name}")
+
         except Exception as e:
-            print(f"[KUHP ERROR] Response generation failed: {e}")
+            print(f"[KUHP ERROR] File verification failed: {e}")
             raise
 
     def get_status(self) -> Dict[str, Any]:
