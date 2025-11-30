@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Send, FileText, AlertCircle, CheckCircle } from 'lucide-react'
 
@@ -9,11 +9,19 @@ interface AnalysisResponse {
   is_relevant: boolean
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+
 export default function Home() {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AnalysisResponse | null>(null)
   const [error, setError] = useState('')
+
+  // Log API URL untuk debugging
+  useEffect(() => {
+    console.log('Environment API URL:', process.env.NEXT_PUBLIC_API_URL)
+    console.log('Final API URL:', API_URL)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,8 +36,8 @@ export default function Home() {
     setResult(null)
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL
-      const response = await axios.post(`${apiUrl}/analyze`, {
+      console.log('Using API URL:', API_URL)
+      const response = await axios.post(`${API_URL}/analyze`, {
         query: query.trim()
       })
 

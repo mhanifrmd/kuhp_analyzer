@@ -67,10 +67,10 @@ gcloud run deploy kuhp-analyzer-backend \
 BACKEND_URL=$(gcloud run services describe kuhp-analyzer-backend --platform=managed --region=$REGION --format='value(status.url)' --project=$PROJECT_ID)
 echo "Backend berhasil di-deploy di: $BACKEND_URL"
 
-# Build dan push frontend image
-echo "Membangun dan push frontend image..."
+# Build dan push frontend image dengan build argument
+echo "Membangun dan push frontend image dengan API URL: $BACKEND_URL"
 cd frontend
-gcloud builds submit --tag $FRONTEND_IMAGE --project=$PROJECT_ID
+gcloud builds submit --config=cloudbuild.yaml --substitutions=_NEXT_PUBLIC_API_URL=$BACKEND_URL,_IMAGE_NAME=$FRONTEND_IMAGE --project=$PROJECT_ID
 cd ..
 
 # Deploy frontend service
