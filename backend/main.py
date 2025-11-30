@@ -58,6 +58,13 @@ class AnalyzerStatusResponse(BaseModel):
     analyzer_info: dict
     health: str
 
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+    is_relevant: bool
+
 # Global analyzer instance
 kuhp_analyzer: Optional[KUHPAnalyzer] = None
 
@@ -142,8 +149,47 @@ async def analyze_kuhp_difference(request: QueryRequest):
     except Exception as e:
         print(f"[KUHP ERROR] Analysis failed: {e}")
         raise HTTPException(
-            status_code=500, 
+            status_code=500,
             detail=f"Terjadi kesalahan saat memproses analisis: {str(e)}"
+        )
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_kuhp(request: ChatRequest):
+    """
+    Chat tentang KUHP - format conversational
+    """
+    try:
+        if not kuhp_analyzer:
+            raise HTTPException(
+                status_code=503,
+                detail="KUHP Analyzer belum diinisialisasi. Silakan coba lagi nanti."
+            )
+
+        # Validate input
+        if not request.message or not request.message.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Pesan tidak boleh kosong"
+            )
+
+        message = request.message.strip()
+
+        # Chat menggunakan Gemini
+        print(f"[KUHP CHAT] Processing message: {message}")
+        chat_result = kuhp_analyzer.chat(message)
+
+        return ChatResponse(
+            response=chat_result["response"],
+            is_relevant=chat_result["is_relevant"]
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[KUHP CHAT ERROR] Chat failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Terjadi kesalahan saat memproses chat: {str(e)}"
         )
 
 @app.get("/analyzer/status", response_model=AnalyzerStatusResponse)

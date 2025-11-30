@@ -344,6 +344,71 @@ PENTING:
             print(f"[KUHP ERROR] File verification failed: {e}")
             raise
 
+    def chat(self, message: str) -> Dict[str, Any]:
+        """Chat tentang KUHP - format conversational"""
+        try:
+            if not self.is_initialized:
+                raise Exception("Gemini belum diinisialisasi")
+
+            if not self.old_kuhp_file or not self.new_kuhp_file:
+                raise Exception("PDF files belum di-upload")
+
+            print(f"[KUHP CHAT] Processing message: {message[:100]}...")
+
+            # Check relevance
+            is_relevant = self._check_query_relevance(message)
+
+            if not is_relevant:
+                return {
+                    "response": self._get_irrelevant_response(),
+                    "is_relevant": False
+                }
+
+            # Build chat prompt
+            chat_prompt = self._build_chat_prompt(message)
+
+            # Generate response
+            response_text = self._generate_response_with_files(chat_prompt)
+
+            print("[KUHP CHAT] Response generated successfully")
+            return {
+                "response": response_text,
+                "is_relevant": True
+            }
+
+        except Exception as e:
+            print(f"[KUHP CHAT ERROR] Chat failed: {e}")
+            raise
+
+    def _build_chat_prompt(self, message: str) -> str:
+        """Build chat prompt untuk percakapan natural tentang KUHP"""
+
+        prompt = f"""Anda adalah AI assistant yang ahli dalam hukum pidana Indonesia, khususnya KUHP (Kitab Undang-Undang Hukum Pidana).
+
+Anda memiliki akses ke dua dokumen PDF:
+1. KUHP Lama (sebelum revisi)
+2. KUHP Baru (hasil revisi, UU No. 1 Tahun 2023)
+
+Pertanyaan pengguna: {message}
+
+=== INSTRUKSI ===
+1. Jawab pertanyaan pengguna dengan bahasa yang natural dan mudah dipahami
+2. Gunakan informasi dari kedua dokumen KUHP jika relevan
+3. Jika ditanya tentang pasal tertentu, kutip isi pasal yang relevan
+4. Jika ditanya perbandingan, jelaskan perbedaan dengan jelas
+5. Berikan konteks dan penjelasan yang membantu pemahaman
+6. Gunakan format yang rapi dengan bullet points atau numbering jika perlu
+7. Jangan gunakan format JSON, berikan jawaban dalam bentuk teks natural
+
+=== FORMAT JAWABAN ===
+Berikan jawaban dalam bentuk paragraf atau bullet points yang mudah dibaca.
+Gunakan **bold** untuk menekankan poin penting.
+Kutip pasal dengan jelas jika relevan.
+
+Jawab dalam bahasa Indonesia yang profesional namun mudah dipahami."""
+
+        return prompt
+
     def get_status(self) -> Dict[str, Any]:
         """Get analyzer status"""
         return {
