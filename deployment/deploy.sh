@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # KUHP Analyzer - Script Deployment untuk Google Cloud Run
-# Menggunakan Google Agent Development Kit (ADK) dengan Gemini 2.5 Flash
+# Menggunakan Gemini File API dengan Gemini 2.5 Flash
 # Jalankan script ini di Google Cloud Shell
 
 set -e
@@ -28,14 +28,15 @@ echo "Memulai deployment KUHP Analyzer ke Google Cloud Run..."
 echo "Project ID: $PROJECT_ID"
 echo "Region: $REGION"
 
-# Aktifkan API yang diperlukan untuk ADK
-echo "Mengaktifkan Google Cloud APIs yang diperlukan untuk ADK..."
+# Aktifkan API yang diperlukan untuk Gemini File API
+echo "Mengaktifkan Google Cloud APIs yang diperlukan untuk Gemini File API..."
 gcloud services enable cloudbuild.googleapis.com --project=$PROJECT_ID
 gcloud services enable run.googleapis.com --project=$PROJECT_ID
 gcloud services enable containerregistry.googleapis.com --project=$PROJECT_ID
 gcloud services enable aiplatform.googleapis.com --project=$PROJECT_ID
-gcloud services enable cloudfunctions.googleapis.com --project=$PROJECT_ID
-gcloud services enable storage.googleapis.com --project=$PROJECT_ID
+# Cloud Functions dan Storage tidak diperlukan untuk Gemini File API
+# gcloud services enable cloudfunctions.googleapis.com --project=$PROJECT_ID
+# gcloud services enable storage.googleapis.com --project=$PROJECT_ID
 gcloud services enable secretmanager.googleapis.com --project=$PROJECT_ID
 
 # Set project dan region default

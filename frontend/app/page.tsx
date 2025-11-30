@@ -147,7 +147,7 @@ export default function Home() {
       </div>
 
       <footer className="mt-12 text-center text-gray-500 text-sm">
-        <p>© 2024 KUHP Analyzer - Powered by Google Agent Development Kit</p>
+        <p>© 2025 KUHP Analyzer - Powered by Google Agent Development Kit</p>
       </footer>
     </div>
   )

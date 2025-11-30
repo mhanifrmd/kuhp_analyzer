@@ -6,15 +6,15 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import uvicorn
 
-# ADK imports
-from kuhp_agent import get_agent_instance, KUHPAgentHandler
+# KUHP Analyzer imports
+from kuhp_agent import get_analyzer_instance, KUHPAnalyzer
 
 load_dotenv()
 
 app = FastAPI(
-    title="KUHP Analyzer - Agent Development Kit", 
-    version="2.0.0",
-    description="AI Agent untuk analisis KUHP menggunakan Google Agent Development Kit"
+    title="KUHP Analyzer - Gemini File API", 
+    version="3.0.0",
+    description="AI Analyzer untuk analisis KUHP menggunakan Gemini File API"
 )
 
 app.add_middleware(
@@ -31,65 +31,58 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     is_relevant: bool
-    agent_info: Optional[dict] = None
+    analyzer_info: Optional[dict] = None
 
-class AgentStatusResponse(BaseModel):
+class AnalyzerStatusResponse(BaseModel):
     status: str
-    agent_info: dict
+    analyzer_info: dict
     health: str
 
-# Global agent instance
-kuhp_agent: Optional[KUHPAgentHandler] = None
+# Global analyzer instance
+kuhp_analyzer: Optional[KUHPAnalyzer] = None
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize KUHP Analyzer Agent dengan ADK"""
-    global kuhp_agent
+    """Initialize KUHP Analyzer dengan Gemini File API"""
+    global kuhp_analyzer
     
     try:
-        # Get project ID dari environment
-        project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT")
-        if not project_id:
-            # Fallback untuk development
-            project_id = "your-project-id"
-            print("[WARNING] No GCP project ID found, using default")
-            
-        print(f"[ADK] Initializing KUHP Analyzer Agent for project: {project_id}")
+        print("[KUHP] Initializing KUHP Analyzer with Gemini File API")
         
-        # Initialize agent dengan ADK
-        kuhp_agent = get_agent_instance(project_id=project_id)
+        # Initialize analyzer
+        kuhp_analyzer = get_analyzer_instance()
         
         # Load documents
-        if kuhp_agent.load_documents():
-            print("[ADK] KUHP Analyzer Agent initialized successfully")
+        if kuhp_analyzer.load_documents():
+            print("[KUHP] KUHP Analyzer initialized successfully")
         else:
-            print("[ADK WARNING] Failed to load documents, agent may have limited functionality")
+            print("[KUHP WARNING] Failed to load documents, analyzer may have limited functionality")
             
     except Exception as e:
-        print(f"[ADK ERROR] Failed to initialize agent: {e}")
+        print(f"[KUHP ERROR] Failed to initialize analyzer: {e}")
         # Don't raise - let the app start but handle errors in endpoints
-        kuhp_agent = None
+        kuhp_analyzer = None
 
 @app.get("/")
 async def root():
-    """Root endpoint dengan informasi agent"""
+    """Root endpoint dengan informasi analyzer"""
     return {
-        "message": "KUHP Analyzer dengan Google Agent Development Kit",
-        "version": "2.0.0",
-        "agent_status": "initialized" if kuhp_agent else "not_initialized",
-        "description": "AI Agent untuk menganalisis perbedaan KUHP lama dan baru"
+        "message": "KUHP Analyzer dengan Gemini File API",
+        "version": "3.0.0",
+        "analyzer_status": "initialized" if kuhp_analyzer else "not_initialized",
+        "description": "AI Analyzer untuk menganalisis perbedaan KUHP lama dan baru"
     }
 
 @app.post("/analyze", response_model=QueryResponse)
 async def analyze_kuhp_difference(request: QueryRequest):
     """
-    Analyze perbedaan KUHP menggunakan ADK Agent
+    Analyze perbedaan KUHP menggunakan Gemini File API
     """
     try:
-        if not kuhp_agent:
+        if not kuhp_analyzer:
             raise HTTPException(
                 status_code=503, 
-                detail="KUHP Analyzer Agent belum diinisialisasi. Silakan coba lagi nanti."
+                detail="KUHP Analyzer belum diinisialisasi. Silakan coba lagi nanti."
             )
             
         # Validate input
@@ -101,78 +94,84 @@ async def analyze_kuhp_difference(request: QueryRequest):
             
         query = request.query.strip()
         
-        # Analyze menggunakan ADK agent
-        print(f"[ADK] Processing query: {query}")
-        analysis_result = kuhp_agent.analyze_differences(query)
+        # Analyze menggunakan Gemini File API
+        print(f"[KUHP] Processing query: {query}")
+        analysis_result = kuhp_analyzer.analyze_differences(query)
         
         return QueryResponse(
             response=analysis_result["response"],
             is_relevant=analysis_result["is_relevant"],
-            agent_info={
-                "chunks_used": analysis_result.get("context_chunks_used", 0),
-                "agent_name": kuhp_agent.agent_config.agent_name,
-                "model": kuhp_agent.agent_config.model_name
+            analyzer_info={
+                "files_used": analysis_result.get("files_used", 0),
+                "model": kuhp_analyzer.config.model_name,
+                "method": "gemini_file_api"
             }
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[ADK ERROR] Analysis failed: {e}")
+        print(f"[KUHP ERROR] Analysis failed: {e}")
         raise HTTPException(
             status_code=500, 
             detail=f"Terjadi kesalahan saat memproses analisis: {str(e)}"
         )
 
-@app.get("/agent/status", response_model=AgentStatusResponse)
-async def get_agent_status():
-    """Get detailed agent status untuk monitoring"""
+@app.get("/analyzer/status", response_model=AnalyzerStatusResponse)
+async def get_analyzer_status():
+    """Get detailed analyzer status untuk monitoring"""
     try:
-        if not kuhp_agent:
-            return AgentStatusResponse(
+        if not kuhp_analyzer:
+            return AnalyzerStatusResponse(
                 status="not_initialized",
-                agent_info={},
+                analyzer_info={},
                 health="unhealthy"
             )
             
-        agent_status = kuhp_agent.get_agent_status()
+        analyzer_status = kuhp_analyzer.get_status()
         
-        return AgentStatusResponse(
+        return AnalyzerStatusResponse(
             status="active",
-            agent_info=agent_status,
-            health="healthy" if agent_status["documents_loaded"] else "degraded"
+            analyzer_info=analyzer_status,
+            health="healthy" if analyzer_status["files_uploaded"] else "degraded"
         )
         
     except Exception as e:
-        print(f"[ADK ERROR] Status check failed: {e}")
-        return AgentStatusResponse(
+        print(f"[KUHP ERROR] Status check failed: {e}")
+        return AnalyzerStatusResponse(
             status="error",
-            agent_info={"error": str(e)},
+            analyzer_info={"error": str(e)},
             health="unhealthy"
         )
 
-@app.post("/agent/reset")
-async def reset_agent_session():
-    """Reset agent session untuk conversation baru"""
+@app.post("/analyzer/reload")
+async def reload_analyzer_files():
+    """Reload PDF files untuk analyzer"""
     try:
-        if not kuhp_agent:
+        if not kuhp_analyzer:
             raise HTTPException(
                 status_code=503,
-                detail="Agent tidak tersedia"
+                detail="Analyzer tidak tersedia"
             )
             
-        kuhp_agent.reset_session()
+        if kuhp_analyzer.load_documents():
+            return {
+                "message": "PDF files berhasil direload",
+                "status": "success"
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Gagal memuat ulang PDF files"
+            )
         
-        return {
-            "message": "Agent session berhasil direset",
-            "status": "success"
-        }
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"[ADK ERROR] Session reset failed: {e}")
+        print(f"[KUHP ERROR] File reload failed: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Gagal mereset session: {str(e)}"
+            detail=f"Gagal reload files: {str(e)}"
         )
 
 @app.get("/health")
@@ -180,55 +179,57 @@ async def health_check():
     """Comprehensive health check untuk Cloud Run"""
     health_status = {
         "status": "healthy",
-        "service": "kuhp-analyzer-adk",
-        "version": "2.0.0",
+        "service": "kuhp-analyzer-gemini",
+        "version": "3.0.0",
         "components": {
             "fastapi": "healthy",
-            "agent": "unknown",
-            "documents": "unknown"
+            "analyzer": "unknown",
+            "files": "unknown"
         }
     }
     
     try:
-        if kuhp_agent:
-            agent_status = kuhp_agent.get_agent_status()
-            health_status["components"]["agent"] = "healthy"
-            health_status["components"]["documents"] = "healthy" if agent_status["documents_loaded"] else "degraded"
-            health_status["agent_info"] = {
-                "name": agent_status["agent_name"],
-                "model": agent_status["model_name"],
-                "chunks_loaded": agent_status["chunks_loaded"]
+        if kuhp_analyzer:
+            analyzer_status = kuhp_analyzer.get_status()
+            health_status["components"]["analyzer"] = "healthy"
+            health_status["components"]["files"] = "healthy" if analyzer_status["files_uploaded"] else "degraded"
+            health_status["analyzer_info"] = {
+                "model": analyzer_status["model_name"],
+                "old_kuhp": analyzer_status["old_kuhp_file"],
+                "new_kuhp": analyzer_status["new_kuhp_file"]
             }
         else:
-            health_status["components"]["agent"] = "unhealthy"
+            health_status["components"]["analyzer"] = "unhealthy"
             health_status["status"] = "degraded"
             
     except Exception as e:
-        health_status["components"]["agent"] = "unhealthy"
+        health_status["components"]["analyzer"] = "unhealthy"
         health_status["status"] = "degraded"
         health_status["error"] = str(e)
         
     return health_status
 
-@app.get("/docs/agent")
-async def get_agent_documentation():
-    """Get dokumentasi agent untuk debugging"""
-    if not kuhp_agent:
-        return {"error": "Agent tidak tersedia"}
+@app.get("/docs/analyzer")
+async def get_analyzer_documentation():
+    """Get dokumentasi analyzer untuk debugging"""
+    if not kuhp_analyzer:
+        return {"error": "Analyzer tidak tersedia"}
         
     return {
-        "agent_config": {
-            "name": kuhp_agent.agent_config.agent_name,
-            "model": kuhp_agent.agent_config.model_name,
-            "temperature": kuhp_agent.agent_config.temperature,
-            "max_tokens": kuhp_agent.agent_config.max_output_tokens
+        "analyzer_config": {
+            "model": kuhp_analyzer.config.model_name,
+            "temperature": kuhp_analyzer.config.temperature,
+            "max_tokens": kuhp_analyzer.config.max_output_tokens,
+            "old_kuhp_path": kuhp_analyzer.config.old_kuhp_path,
+            "new_kuhp_path": kuhp_analyzer.config.new_kuhp_path
         },
-        "document_config": {
-            "chunk_size": kuhp_agent.doc_config.chunk_size,
-            "overlap": kuhp_agent.doc_config.overlap
+        "file_status": {
+            "old_kuhp_uploaded": bool(kuhp_analyzer.old_kuhp_file),
+            "new_kuhp_uploaded": bool(kuhp_analyzer.new_kuhp_file),
+            "is_initialized": kuhp_analyzer.is_initialized
         },
-        "tools": kuhp_agent.agent.agent_tools,
-        "system_prompt": kuhp_agent.agent.get_system_prompt()[:200] + "..."
+        "method": "gemini_file_api",
+        "description": "Menggunakan Gemini File API untuk upload dan analisis PDF langsung"
     }
 
 if __name__ == "__main__":

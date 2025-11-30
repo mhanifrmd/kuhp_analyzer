@@ -1,293 +1,276 @@
 """
-KUHP Analyzer Agent Implementation
-Menggunakan Google Agent Development Kit dengan Vertex AI dan LangChain
+KUHP Analyzer Implementation
+Menggunakan Gemini File API untuk analisis PDF langsung
 """
 
 import os
-import json
-from typing import Dict, Any, Optional, List
-import PyPDF2
-import vertexai
-from vertexai.generative_models import GenerativeModel, ChatSession
-from google.cloud import aiplatform
+import time
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+
+# Google AI SDK for File API
 try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    from langchain_core.documents import Document
-    LANGCHAIN_AVAILABLE = True
+    import google.generativeai as genai
+    GENAI_AVAILABLE = True
 except ImportError:
-    try:
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
-        from langchain.schema import Document
-        LANGCHAIN_AVAILABLE = True
-    except ImportError:
-        print("[ADK WARNING] LangChain imports failed, using basic text processing")
-        LANGCHAIN_AVAILABLE = False
-        
-        # Fallback Document class
-        class Document:
-            def __init__(self, page_content: str, metadata: Dict[str, Any] = None):
-                self.page_content = page_content
-                self.metadata = metadata or {}
-                
-        # Fallback text splitter
-        class RecursiveCharacterTextSplitter:
-            def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-                self.chunk_size = chunk_size
-                self.chunk_overlap = chunk_overlap
-                
-            def split_text(self, text: str) -> List[str]:
-                chunks = []
-                start = 0
-                while start < len(text):
-                    end = start + self.chunk_size
-                    chunk = text[start:end]
-                    chunks.append(chunk)
-                    start = end - self.chunk_overlap
-                return chunks
-from agent_config import KUHPAnalyzerAgent, AgentConfig, DocumentConfig
+    print("[ERROR] Google AI SDK not available")
+    GENAI_AVAILABLE = False
 
 
-class KUHPAgentHandler:
-    """
-    Handler untuk KUHP Analyzer Agent menggunakan Google ADK
-    """
+@dataclass
+class KUHPConfig:
+    """Konfigurasi untuk KUHP analyzer"""
+    model_name: str = "gemini-2.5-flash-exp"
+    temperature: float = 0.1
+    max_output_tokens: int = 2048
+    old_kuhp_path: str = "documents/kuhp_old.pdf"
+    new_kuhp_path: str = "documents/kuhp_new.pdf"
+
+
+class KUHPAnalyzer:
+    """KUHP Analyzer menggunakan Gemini File API langsung"""
     
-    def __init__(self, project_id: str, location: str = "asia-southeast1"):
-        self.project_id = project_id
-        self.location = location
-        self.agent_config, self.doc_config = self._get_config()
-        self.agent = KUHPAnalyzerAgent(self.agent_config, self.doc_config)
+    def __init__(self):
+        self.config = KUHPConfig()
         self.model = None
-        self.chat_session = None
-        self.documents_loaded = False
-        self.kuhp_old_chunks = []
-        self.kuhp_new_chunks = []
+        self.old_kuhp_file = None
+        self.new_kuhp_file = None
+        self.is_initialized = False
         
-        # Initialize Vertex AI
-        self._initialize_vertex_ai()
+        # Initialize Gemini
+        self._initialize_gemini()
         
-    def _get_config(self) -> tuple[AgentConfig, DocumentConfig]:
-        """Get configuration based on environment"""
-        env = os.getenv("ENVIRONMENT", "production")
-        if env == "development":
-            from agent_config import get_development_config
-            return get_development_config()
-        else:
-            from agent_config import get_production_config
-            return get_production_config()
-            
-    def _initialize_vertex_ai(self):
-        """Initialize Vertex AI dan Gemini model"""
+    def _initialize_gemini(self):
+        """Initialize Gemini AI dengan API key"""
         try:
-            vertexai.init(project=self.project_id, location=self.location)
-            self.model = GenerativeModel(
-                model_name=self.agent_config.model_name,
-                system_instruction=self.agent.get_system_prompt()
+            if not GENAI_AVAILABLE:
+                raise Exception("Google AI SDK not available")
+                
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise Exception("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            
+            self.model = genai.GenerativeModel(
+                model_name=self.config.model_name,
+                generation_config={
+                    "temperature": self.config.temperature,
+                    "max_output_tokens": self.config.max_output_tokens
+                }
             )
-            self.chat_session = self.model.start_chat()
-            print(f"[ADK] Vertex AI initialized with {self.agent_config.model_name}")
+            
+            print(f"[KUHP] Gemini initialized successfully using {self.config.model_name}")
+            
         except Exception as e:
-            print(f"[ADK ERROR] Failed to initialize Vertex AI: {e}")
+            print(f"[KUHP ERROR] Failed to initialize Gemini: {e}")
             raise
             
     def load_documents(self) -> bool:
-        """Load dan process dokumen KUHP"""
+        """Load PDF files ke Gemini menggunakan File API"""
         try:
-            if self.documents_loaded:
-                return True
+            print("[KUHP] Uploading PDF documents to Gemini...")
+            
+            # Upload KUHP lama
+            old_path = Path(self.config.old_kuhp_path)
+            if old_path.exists():
+                print(f"[KUHP] Uploading {old_path.name}...")
+                self.old_kuhp_file = genai.upload_file(
+                    path=str(old_path),
+                    display_name="KUHP Lama"
+                )
+                print(f"[KUHP] KUHP Lama uploaded: {self.old_kuhp_file.display_name}")
+            else:
+                print(f"[KUHP WARNING] File not found: {old_path}")
+                return False
+            
+            # Upload KUHP baru
+            new_path = Path(self.config.new_kuhp_path)
+            if new_path.exists():
+                print(f"[KUHP] Uploading {new_path.name}...")
+                self.new_kuhp_file = genai.upload_file(
+                    path=str(new_path),
+                    display_name="KUHP Baru"
+                )
+                print(f"[KUHP] KUHP Baru uploaded: {self.new_kuhp_file.display_name}")
+            else:
+                print(f"[KUHP WARNING] File not found: {new_path}")
+                return False
                 
-            print("[ADK] Loading KUHP documents...")
+            # Wait for files to be processed
+            self._wait_for_files_active()
             
-            # Load KUHP lama
-            old_text = self._extract_text_from_pdf(self.doc_config.old_kuhp_path)
-            # Load KUHP baru  
-            new_text = self._extract_text_from_pdf(self.doc_config.new_kuhp_path)
+            self.is_initialized = True
+            print("[KUHP] Documents loaded and ready for analysis")
             
-            # Split documents into chunks
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=self.doc_config.chunk_size,
-                chunk_overlap=self.doc_config.overlap
-            )
-            
-            old_docs = text_splitter.split_text(old_text)
-            new_docs = text_splitter.split_text(new_text)
-            
-            self.kuhp_old_chunks = [
-                Document(page_content=chunk, metadata={"type": "kuhp_old", "chunk_id": i})
-                for i, chunk in enumerate(old_docs)
-            ]
-            
-            self.kuhp_new_chunks = [
-                Document(page_content=chunk, metadata={"type": "kuhp_new", "chunk_id": i})
-                for i, chunk in enumerate(new_docs)
-            ]
-            
-            self.documents_loaded = True
-            print(f"[ADK] Documents loaded: {len(self.kuhp_old_chunks)} old chunks, {len(self.kuhp_new_chunks)} new chunks")
             return True
             
         except Exception as e:
-            print(f"[ADK ERROR] Failed to load documents: {e}")
+            print(f"[KUHP ERROR] Failed to load documents: {e}")
             return False
             
-    def _extract_text_from_pdf(self, file_path: str) -> str:
-        """Extract text dari PDF file"""
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += page.extract_text()
-                return text
-        except Exception as e:
-            raise Exception(f"Error reading PDF {file_path}: {str(e)}")
-            
-    def check_relevance(self, query: str) -> bool:
-        """Check apakah query relevan dengan KUHP menggunakan agent"""
-        try:
-            relevance_prompt = f"""
-            Sebagai AHLI HUKUM, tentukan apakah Kata Kunci berikut berikut relevan dengan KUHP:
-            
-            Kata Kunci: "{query}"
-            
-            Kriteria relevan:
-            - Berkaitan dengan pasal-pasal KUHP
-            - Menyangkut hukum pidana Indonesia
-            - Membahas kejahatan, pelanggaran, atau sanksi
-            - Berkaitan dengan perubahan/perbedaan KUHP
-            
-            Jawab hanya: YA atau TIDAK
-            """
-            
-            response = self.chat_session.send_message(relevance_prompt)
-            return "YA" in response.text.upper()
-            
-        except Exception as e:
-            print(f"[ADK ERROR] Relevance check failed: {e}")
-            return False
-            
-    def find_relevant_chunks(self, query: str, doc_type: str = "both") -> List[Document]:
-        """Find relevant document chunks berdasarkan query"""
-        relevant_chunks = []
+    def _wait_for_files_active(self):
+        """Wait for uploaded files to become active"""
+        print("[KUHP] Waiting for files to be processed...")
         
-        # Simple keyword-based search (bisa ditingkatkan dengan vector search)
-        query_lower = query.lower()
+        max_wait_time = 60  # seconds
+        wait_interval = 2
+        elapsed = 0
         
-        chunks_to_search = []
-        if doc_type in ["old", "both"]:
-            chunks_to_search.extend(self.kuhp_old_chunks)
-        if doc_type in ["new", "both"]:
-            chunks_to_search.extend(self.kuhp_new_chunks)
+        while elapsed < max_wait_time:
+            old_file_info = genai.get_file(self.old_kuhp_file.name) if self.old_kuhp_file else None
+            new_file_info = genai.get_file(self.new_kuhp_file.name) if self.new_kuhp_file else None
             
-        for chunk in chunks_to_search:
-            if any(keyword in chunk.page_content.lower() for keyword in query_lower.split()):
-                relevant_chunks.append(chunk)
+            if (old_file_info and old_file_info.state.name == "ACTIVE" and
+                new_file_info and new_file_info.state.name == "ACTIVE"):
+                print("[KUHP] Both files are now active and ready for use")
+                return
                 
-        # Limit to top 5 most relevant chunks
-        return relevant_chunks[:5]
-        
+            print(f"[KUHP] Files still processing... ({elapsed}s elapsed)")
+            time.sleep(wait_interval)
+            elapsed += wait_interval
+            
+        print("[KUHP WARNING] Files may not be fully processed, but continuing anyway")
+
     def analyze_differences(self, query: str) -> Dict[str, Any]:
-        """Analyze perbedaan KUHP menggunakan agent dengan tools"""
+        """Analyze perbedaan KUHP berdasarkan query langsung dari PDF files"""
         try:
-            if not self.documents_loaded:
-                if not self.load_documents():
-                    return {
-                        "response": "Maaf, terjadi kesalahan saat memuat dokumen KUHP.",
-                        "is_relevant": False
-                    }
-                    
-            # Step 1: Check relevance
-            is_relevant = self.check_relevance(query)
+            if not self.is_initialized:
+                raise Exception("Gemini belum diinisialisasi")
+                
+            if not self.old_kuhp_file or not self.new_kuhp_file:
+                raise Exception("PDF files belum di-upload")
+            
+            print(f"[KUHP] Starting analysis for query: {query[:100]}...")
+            
+            # Check relevance first
+            is_relevant = self._check_query_relevance(query)
             
             if not is_relevant:
                 return {
-                    "response": "Maaf, saya hanya dapat membantu menganalisis perbedaan dalam dokumen KUHP. Silakan ajukan pertanyaan yang berkaitan dengan pasal atau topik dalam KUHP.",
-                    "is_relevant": False
+                    "response": self._get_irrelevant_response(query),
+                    "is_relevant": False,
+                    "files_used": 0
                 }
-                
-            # Step 2: Find relevant chunks
-            relevant_chunks = self.find_relevant_chunks(query)
             
-            if not relevant_chunks:
-                return {
-                    "response": "Maaf, tidak ditemukan informasi yang relevan dalam dokumen KUHP untuk pertanyaan Anda. Coba gunakan kata kunci yang lebih spesifik.",
-                    "is_relevant": True
-                }
-                
-            # Step 3: Generate analysis using agent
-            context_text = "\n\n".join([
-                f"[{chunk.metadata['type'].upper()}] {chunk.page_content[:500]}..."
-                for chunk in relevant_chunks
-            ])
+            # Generate analysis dengan PDF files
+            analysis_prompt = self._build_analysis_prompt(query)
             
-            analysis_prompt = f"""
-            Sebagai AHLI HUKUM, buatlah sebuah perbandingan antara KUHP lama dan baru berdasarkan KONTEKS DOKUMEN dan KATA KUNCI berikut:
+            # Generate response dengan file attachments
+            response = self._generate_response_with_files(analysis_prompt)
             
-            KONTEKS DOKUMEN:
-            {context_text}
-            
-            KATA KUNCI: "{query}"
-            
-            TUGAS ANDA:
-            1. Identifikasi perbedaan utama antara KUHP lama dan KUHP baru terkait dengan KATA KUNCI tersebut
-            2. Jelaskan perubahan pasal-pasal yang relevan
-            3. Berikan analisis dampak dari perubahan tersebut
-            4. Gunakan format yang jelas dan mudah dipahami
-            
-            Berikan analisis yang komprehensif dan faktual berdasarkan dokumen yang tersedia.
-
-            dan tolong PASTIKAN respon yang anda berikan terbagi dalam 2 segmen yaitu KUHP LAMA dan KUHP BARU serta pastikan penulisan nya rapih tanpa tabahan character "*"
-            """
-            
-            response = self.chat_session.send_message(analysis_prompt)
-            
-            return {
-                "response": response.text,
+            result = {
+                "response": response,
                 "is_relevant": True,
-                "context_chunks_used": len(relevant_chunks)
+                "files_used": 2  # both PDF files
             }
+            
+            print("[KUHP] Analysis completed using both KUHP PDF files")
+            return result
             
         except Exception as e:
-            print(f"[ADK ERROR] Analysis failed: {e}")
-            return {
-                "response": "Maaf, terjadi kesalahan saat menganalisis pertanyaan Anda. Silakan coba lagi.",
-                "is_relevant": False
-            }
-            
-    def get_agent_status(self) -> Dict[str, Any]:
-        """Get status agent untuk monitoring"""
-        return {
-            "agent_name": self.agent_config.agent_name,
-            "model_name": self.agent_config.model_name,
-            "documents_loaded": self.documents_loaded,
-            "chunks_loaded": {
-                "old": len(self.kuhp_old_chunks),
-                "new": len(self.kuhp_new_chunks)
-            },
-            "project_id": self.project_id,
-            "location": self.location
-        }
+            print(f"[KUHP ERROR] Analysis failed: {e}")
+            raise
+
+    def _check_query_relevance(self, query: str) -> bool:
+        """Check apakah query relevan dengan KUHP"""
+        kuhp_keywords = [
+            'kuhp', 'hukum pidana', 'pasal', 'pidana', 'kejahatan', 'pelanggaran',
+            'pencurian', 'pembunuhan', 'penganiayaan', 'penipuan', 'korupsi',
+            'perkosaan', 'narkoba', 'terorisme', 'cyber', 'cyber crime',
+            'sanksi', 'hukuman', 'denda', 'penjara', 'kurungan', 'tahanan',
+            'tindak pidana', 'delik', 'unsur', 'ancaman', 'maksimal', 'minimal'
+        ]
         
-    def reset_session(self):
-        """Reset chat session untuk conversation baru"""
-        try:
-            self.chat_session = self.model.start_chat()
-            print("[ADK] Chat session reset")
-        except Exception as e:
-            print(f"[ADK ERROR] Failed to reset session: {e}")
-
-
-# Global agent instance untuk reuse
-_agent_instance: Optional[KUHPAgentHandler] = None
-
-
-def get_agent_instance(project_id: str = None) -> KUHPAgentHandler:
-    """Get or create global agent instance"""
-    global _agent_instance
+        query_lower = query.lower()
+        return any(keyword in query_lower for keyword in kuhp_keywords)
     
-    if _agent_instance is None:
-        if not project_id:
-            project_id = os.getenv("GOOGLE_CLOUD_PROJECT", "your-project-id")
-        _agent_instance = KUHPAgentHandler(project_id=project_id)
+    def _get_irrelevant_response(self, query: str) -> str:
+        """Response untuk query yang tidak relevan"""
+        return """Maaf, pertanyaan Anda sepertinya tidak terkait dengan KUHP (Kitab Undang-Undang Hukum Pidana) Indonesia.
+
+Saya adalah AI assistant yang khusus dirancang untuk menganalisis perbedaan antara KUHP lama dan KUHP baru yang berlaku di Indonesia.
+
+Silakan tanyakan hal-hal yang berkaitan dengan:
+• Pasal-pasal dalam KUHP
+• Jenis-jenis tindak pidana (kejahatan dan pelanggaran)
+• Sanksi dan hukuman dalam KUHP
+• Perbedaan ketentuan antara KUHP lama dan baru
+• Perubahan sistem pemidanaan
+
+Contoh pertanyaan yang dapat saya bantu:
+- "Apa perbedaan Pasal 351 tentang penganiayaan di KUHP lama dan baru?"
+- "Bagaimana perubahan ketentuan tentang pencurian?"
+- "Apa sanksi untuk tindak pidana korupsi di KUHP baru?"
+"""
+
+    def _build_analysis_prompt(self, query: str) -> str:
+        """Build analysis prompt untuk Gemini dengan PDF files"""
         
-    return _agent_instance
+        prompt = f"""Anda adalah AI assistant yang ahli dalam menganalisis KUHP (Kitab Undang-Undang Hukum Pidana) Indonesia.
+
+Tugas Anda: Analisis perbedaan antara KUHP lama dan KUHP baru berdasarkan query pengguna dengan menggunakan kedua file PDF yang telah diberikan.
+
+Query pengguna: {query}
+
+=== INSTRUKSI ANALISIS ===
+1. Baca dan analisis kedua file PDF KUHP (lama dan baru) yang telah diberikan
+2. Bandingkan ketentuan yang relevan dengan query pengguna
+3. Jelaskan perbedaan utama yang ditemukan
+4. Berikan analisis dampak dari perubahan tersebut
+5. Gunakan bahasa Indonesia yang jelas dan mudah dipahami
+6. Fokus pada aspek praktis dan implementasi
+7. Jika ada pasal yang dihapus, dipindahkan, atau ditambah, jelaskan dengan detail
+8. Kutip nomor pasal yang spesifik dari kedua versi KUHP
+
+=== FORMAT RESPONS ===
+Berikan analisis dalam format berikut:
+
+**Ringkasan Perbedaan:**
+[Jelaskan perbedaan utama dalam 2-3 kalimat]
+
+**Analisis Detail:**
+[Analisis mendalam tentang perubahan dengan kutipan pasal spesifik]
+
+**Dampak Praktis:**
+[Jelaskan dampak implementasi perubahan]
+
+**Kesimpulan:**
+[Ringkasan dan rekomendasi]
+
+Jawab dalam bahasa Indonesia yang profesional dan informatif."""
+        
+        return prompt
+
+    def _generate_response_with_files(self, prompt: str) -> str:
+        """Generate response menggunakan Gemini dengan PDF files"""
+        try:
+            # Create content dengan files dan prompt
+            content = [
+                prompt,
+                self.old_kuhp_file,
+                self.new_kuhp_file
+            ]
+            
+            response = self.model.generate_content(content)
+            return response.text
+                
+        except Exception as e:
+            print(f"[KUHP ERROR] Response generation failed: {e}")
+            raise
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get analyzer status"""
+        return {
+            "model_name": self.config.model_name,
+            "is_initialized": self.is_initialized,
+            "files_uploaded": bool(self.old_kuhp_file and self.new_kuhp_file),
+            "old_kuhp_file": self.old_kuhp_file.display_name if self.old_kuhp_file else None,
+            "new_kuhp_file": self.new_kuhp_file.display_name if self.new_kuhp_file else None
+        }
+
+
+def get_analyzer_instance() -> KUHPAnalyzer:
+    """Get KUHP Analyzer instance untuk aplikasi"""
+    return KUHPAnalyzer()
