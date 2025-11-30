@@ -146,9 +146,9 @@ class KUHPAgentHandler:
         """Check apakah query relevan dengan KUHP menggunakan agent"""
         try:
             relevance_prompt = f"""
-            Sebagai KUHP Analyzer Agent, tentukan apakah pertanyaan berikut relevan dengan KUHP:
+            Sebagai AHLI HUKUM, tentukan apakah Kata Kunci berikut berikut relevan dengan KUHP:
             
-            Pertanyaan: "{query}"
+            Kata Kunci: "{query}"
             
             Kriteria relevan:
             - Berkaitan dengan pasal-pasal KUHP
@@ -221,20 +221,22 @@ class KUHPAgentHandler:
             ])
             
             analysis_prompt = f"""
-            Sebagai KUHP Analyzer Agent, analisis perbedaan antara KUHP lama dan baru berdasarkan konteks berikut:
+            Sebagai AHLI HUKUM, buatlah sebuah perbandingan antara KUHP lama dan baru berdasarkan KONTEKS DOKUMEN dan KATA KUNCI berikut:
             
             KONTEKS DOKUMEN:
             {context_text}
             
-            PERTANYAAN PENGGUNA: "{query}"
+            KATA KUNCI: "{query}"
             
             TUGAS ANDA:
-            1. Identifikasi perbedaan utama antara KUHP lama dan baru terkait pertanyaan
+            1. Identifikasi perbedaan utama antara KUHP lama dan KUHP baru terkait dengan KATA KUNCI tersebut
             2. Jelaskan perubahan pasal-pasal yang relevan
             3. Berikan analisis dampak dari perubahan tersebut
             4. Gunakan format yang jelas dan mudah dipahami
             
             Berikan analisis yang komprehensif dan faktual berdasarkan dokumen yang tersedia.
+
+            dan tolong PASTIKAN respon yang anda berikan terbagi dalam 2 segmen yaitu KUHP LAMA dan KUHP BARU serta pastikan penulisan nya rapih tanpa tabahan character "*"
             """
             
             response = self.chat_session.send_message(analysis_prompt)
